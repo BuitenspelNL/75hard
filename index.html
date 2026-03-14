@@ -308,8 +308,8 @@
         <div class="chart-canvas-wrap"><canvas id="c-protein"></canvas></div>
       </div>
       <div class="chart-wrap">
-        <div class="chart-title">🏋️ Workouts</div>
-        <div class="chart-sub">per day · goal 2</div>
+        <div class="chart-title">🏋️ Workout duration</div>
+        <div class="chart-sub">minutes · goal 90 min/day</div>
         <div class="chart-canvas-wrap"><canvas id="c-workouts"></canvas></div>
       </div>
     </div>
@@ -348,14 +348,14 @@
 </div>
 
 <script>
-const GOALS = { pages: 10, water: 2.5, activities: 2, calories: 2100, protein: 100 };
+const GOALS = { pages: 10, water: 2.5, activities: 90, calories: 2100, protein: 100 };
 const METRICS = [
   { key: 'weight',    label: 'Weight',   icon: '⚖️', unit: 'kg',   color: 'var(--weight-c)',   goal: null,  higher: false },
   { key: 'pages',     label: 'Pages',    icon: '📖', unit: 'pp',   color: 'var(--pages-c)',    goal: 10,    higher: true  },
   { key: 'water',     label: 'Water',    icon: '💧', unit: 'L',    color: 'var(--water-c)',    goal: 2.5,   higher: true  },
   { key: 'calories',  label: 'Calories', icon: '🔥', unit: 'kcal', color: 'var(--cal-c)',      goal: 2100,  higher: false },
   { key: 'protein',   label: 'Protein',  icon: '🥩', unit: 'g',    color: 'var(--protein-c)',  goal: 100,   higher: true  },
-  { key: 'activities',label: 'Workouts', icon: '🏋️', unit: '/2',   color: 'var(--workout-c)',  goal: 2,     higher: true  },
+  { key: 'totalDur',  label: 'Workout',  icon: '🏋️', unit: 'min',  color: 'var(--workout-c)',  goal: 90,    higher: true  },
 ];
 
 let logs = JSON.parse(localStorage.getItem('75hard_logs') || '[]');
@@ -371,16 +371,19 @@ function getDayNum() {
 }
 
 function isComplete(log) {
+  const totalDur = (log.w1dur || 0) + (log.w2dur || 0);
   return log && log.pages >= GOALS.pages && log.water >= GOALS.water &&
-         log.activities >= GOALS.activities && log.calories != null && log.calories <= GOALS.calories &&
+         totalDur >= GOALS.activities && log.calories != null && log.calories <= GOALS.calories &&
          log.protein != null && log.protein >= GOALS.protein;
 }
 
 function renderCards() {
   const today = getTodayLog();
+  const totalDur = today ? (today.w1dur || 0) + (today.w2dur || 0) : 0;
+  const enriched = today ? { ...today, totalDur } : null;
   const grid = document.getElementById('cards-grid');
   grid.innerHTML = METRICS.map(m => {
-    const val = today ? today[m.key] : null;
+    const val = enriched ? enriched[m.key] : null;
     let pct = 0, done = false, over = false;
     if (val != null && m.goal) {
       pct = m.higher ? Math.min(100, (val / m.goal) * 100) : Math.min(100, (val / m.goal) * 100);
@@ -493,7 +496,7 @@ function renderCharts() {
   mkChart('c-cal',      'bar',  labels, recent.map(l => l.calories),  '#e8a05a', 2100);
   mkChart('c-pages',    'bar',  labels, recent.map(l => l.pages),     '#7ec8a4', 10);
   mkChart('c-protein',  'bar',  labels, recent.map(l => l.protein),   '#e85a9a', 100);
-  mkChart('c-workouts', 'bar',  labels, recent.map(l => l.activities),'#b89cf5', 2);
+  mkChart('c-workouts', 'bar',  labels, recent.map(l => (l.w1dur || 0) + (l.w2dur || 0)), '#b89cf5', 90);
 
   // stats
   const complete = logs.filter(isComplete).length;
@@ -530,10 +533,11 @@ function renderHistory() {
   list.innerHTML = sorted.map(l => {
     const d = new Date(l.date);
     const dateStr = d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
-    const pills = [
+      const totalDur = (l.w1dur || 0) + (l.w2dur || 0);
+      const pills = [
       l.pages  >= GOALS.pages      ? '<span class="status-pill ok">📖 Pages ✓</span>' : '<span class="status-pill miss">📖 Pages</span>',
       l.water  >= GOALS.water      ? '<span class="status-pill ok">💧 Water ✓</span>' : '<span class="status-pill miss">💧 Water</span>',
-      l.activities >= GOALS.activities ? '<span class="status-pill ok">🏋️ Workout ✓</span>' : '<span class="status-pill miss">🏋️ Workout</span>',
+      totalDur >= GOALS.activities  ? '<span class="status-pill ok">🏋️ Workout ✓</span>' : '<span class="status-pill miss">🏋️ Workout</span>',
       l.calories != null && l.calories <= GOALS.calories ? '<span class="status-pill ok">🔥 Cals ✓</span>' : '<span class="status-pill miss">🔥 Cals</span>',
       l.protein != null && l.protein >= GOALS.protein ? '<span class="status-pill ok">🥩 Protein ✓</span>' : '<span class="status-pill miss">🥩 Protein</span>',
     ].join('');
